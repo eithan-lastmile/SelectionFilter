@@ -179,7 +179,7 @@ class SelectionFilter:
         except:
             pass
         
-        ok = self.popup.exec_()
+        ok = self.popup.exec()
         if ok:
             field = self.popup.comboBoxFields.currentText()
             layer.setCustomProperty("unique_field", field)
