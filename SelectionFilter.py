@@ -124,7 +124,8 @@ class SelectionFilter:
         if len(selection):
             fields = {f.name():f.type() for f in layer.fields()}
             if field in fields:
-                unique_values = [feature[field] for feature in selection ]
+                values = [feature[field] for feature in selection ]
+                unique_values = list(set(values))
                 if len(unique_values) > 1:
                     query_syntax = f"{field} IN {tuple(unique_values)}"
                 else:
