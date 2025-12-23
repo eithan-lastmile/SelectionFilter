@@ -137,7 +137,10 @@ class SelectionFilter:
                     
                 layer.setSubsetString(query_syntax)
                 
-                iface.messageBar().pushMessage(f"{len(unique_values)} feature(s) filtered", level=Qgis.Info)
+                feature_count = layer.featureCount()
+                feature_plural_text = "feature" if feature_count == 1 else "features"
+                value_plural_text = "value" if len(unique_values) == 1 else "values"
+                iface.messageBar().pushMessage(f"{len(unique_values)} unique {value_plural_text} and {feature_count} {feature_plural_text} filtered", level=Qgis.Info)
             else:               
                 iface.messageBar().pushMessage(f"{field} field does not exists",level=Qgis.Warning)
 
