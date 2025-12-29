@@ -52,9 +52,63 @@ class SelectionFilter:
 
         
     def unload(self):
+        # 1) Disconnect project-level signals that reference our methods
+        try:
+            QgsProject.instance().layerWasAdded.disconnect(self.updateFilterActions)
+        except Exception:
+            pass
 
-        self.iface.removeCustomActionForLayerType(self.create_filter_action)
-        self.iface.removeCustomActionForLayerType(self.create_clear_filter_action)
+        # 2) Disconnect QAction signals so slots won't be called after plugin unload
+        try:
+            self.create_filter_action.triggered.disconnect(self.filterSelected)
+        except Exception:
+            pass
+        try:
+            self.create_clear_filter_action.triggered.disconnect(self.clearFilterSelected)
+        except Exception:
+            pass
+        try:
+            self.set_unique_field_action.triggered.disconnect(self.showSetUniqueFieldPopup)
+        except Exception:
+            pass
+
+        # 3) Remove per-layer custom actions that were added for each layer
+        for layer in QgsProject.instance().mapLayers().values():
+            try:
+                self.iface.removeCustomActionForLayer(self.create_filter_action, layer)
+            except Exception:
+                pass
+            try:
+                self.iface.removeCustomActionForLayer(self.create_clear_filter_action, layer)
+            except Exception:
+                pass
+            try:
+                self.iface.removeCustomActionForLayer(self.set_unique_field_action, layer)
+            except Exception:
+                pass
+
+        # 4) Remove the actions registered for layer types (global registration)
+        try:
+            self.iface.removeCustomActionForLayerType(self.create_filter_action)
+        except Exception:
+            pass
+        try:
+            self.iface.removeCustomActionForLayerType(self.create_clear_filter_action)
+        except Exception:
+            pass
+        try:
+            self.iface.removeCustomActionForLayerType(self.set_unique_field_action)
+        except Exception:
+            pass
+
+        # 5) Close / delete any plugin dialogs still open to avoid dangling widgets
+        try:
+            if hasattr(self, 'popup') and self.popup:
+                # close and schedule for deletion
+                self.popup.reject()
+                self.popup.deleteLater()
+        except Exception:
+            pass
 
       
     def filterSelected(self, layer:None):
@@ -70,7 +124,8 @@ class SelectionFilter:
         if len(selection):
             fields = {f.name():f.type() for f in layer.fields()}
             if field in fields:
-                unique_values = [feature[field] for feature in selection ]
+                values = [feature[field] for feature in selection ]
+                unique_values = list(set(values))
                 if len(unique_values) > 1:
                     query_syntax = f"{field} IN {tuple(unique_values)}"
                 else:
@@ -82,7 +137,10 @@ class SelectionFilter:
                     
                 layer.setSubsetString(query_syntax)
                 
-                iface.messageBar().pushMessage(f"{len(unique_values)} feature(s) filtered", level=Qgis.Info)
+                feature_count = layer.featureCount()
+                feature_plural_text = "feature" if feature_count == 1 else "features"
+                value_plural_text = "value" if len(unique_values) == 1 else "values"
+                iface.messageBar().pushMessage(f"{len(unique_values)} unique {value_plural_text} and {feature_count} {feature_plural_text} filtered", level=Qgis.Info)
             else:               
                 iface.messageBar().pushMessage(f"{field} field does not exists",level=Qgis.Warning)
 
@@ -125,7 +183,7 @@ class SelectionFilter:
         except:
             pass
         
-        ok = self.popup.exec_()
+        ok = self.popup.exec()
         if ok:
             field = self.popup.comboBoxFields.currentText()
             layer.setCustomProperty("unique_field", field)
